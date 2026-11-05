@@ -1,0 +1,53 @@
+name: Fabricar la app
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fabricar:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar el proyecto
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Compilar
+        run: |
+          set -o pipefail
+          xcodebuild -project CentroDePaula.xcodeproj -scheme CentroDePaula \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build | tee build.log | grep -E "error:|warning: .*deprecated|BUILD (SUCCEEDED|FAILED)" || true
+          test -d build/Build/Products/Release-iphoneos/CentroDePaula.app
+
+      - name: Empaquetar (.ipa)
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/CentroDePaula.app Payload/
+          ls Payload/CentroDePaula.app/PlugIns || true
+          zip -qry CentroDePaula.ipa Payload
+
+      - name: Guardar la app
+        uses: actions/upload-artifact@v4
+        with:
+          name: CentroDePaula
+          path: CentroDePaula.ipa
+
+      - name: Publicar como «última versión»
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ultima --yes --cleanup-tag || true
+          gh release create ultima CentroDePaula.ipa --title "Centro de Paula (última versión)" --notes "Descarga CentroDePaula.ipa e instálala con AltStore."
+
+      - name: Registro si falla
+        if: failure()
+        run: grep -n "error" build.log | head -80 || true
