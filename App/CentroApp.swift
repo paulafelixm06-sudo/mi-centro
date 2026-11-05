@@ -2,215 +2,149 @@ import SwiftUI
 import EventKit
 import WidgetKit
 import UIKit
+import WebKit
 
 let urlCentro = URL(string: "https://claude.ai/artifact/UQyDm4sV8C5uj9dxeB77Uu")!
 
 @main
 struct CentroApp: App {
     var body: some Scene {
-        WindowGroup { Inicio() }
+        WindowGroup { Raiz() }
     }
 }
 
-struct Inicio: View {
-    @State private var agenda = Agenda()
+/// La app entera es tu Centro (la misma web, pero dentro de la app),
+/// y además da permiso al widget para leer y tachar.
+struct Raiz: View {
     @State private var permiso = Almacen.shared.permiso
-    @State private var aviso: String?
     @Environment(\.scenePhase) private var fase
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack(alignment: .top) {
             Color.fondo.ignoresSafeArea()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    cabecera
-                    if !permiso {
-                        bloquePermiso
-                    } else if !agenda.hay {
-                        nota("Abre tu Centro un momento (el botón de abajo) para que lleguen aquí tus tareas.")
-                    } else {
-                        if let s = agenda.siguiente { tarjetaSiguiente(s) }
-                        seccion("Hoy", agenda.hoy, vacio: "Nada más por hoy ✨")
-                        if !agenda.manana.isEmpty { seccion("Mañana", agenda.manana, vacio: "") }
-                        if !agenda.recien.isEmpty { seccionRecien }
-                    }
-                    Spacer(minLength: 90)
-                }
-                .padding(.horizontal, 18)
-                .padding(.top, 12)
-            }
-            .refreshable { recargar() }
+            WebCentro(url: urlCentro)
+                .ignoresSafeArea(edges: .bottom)
 
-            Link(destination: urlCentro) {
-                HStack(spacing: 8) {
-                    Image(systemName: "house")
-                    Text("Abrir mi Centro").fontWeight(.semibold)
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 22).padding(.vertical, 14)
-                .background(Capsule().fill(Color.rosa))
-                .shadow(color: Color.rosa.opacity(0.35), radius: 10, y: 4)
-            }
-            .padding(.bottom, 12)
-
-            if let a = aviso {
-                Text(a)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 16).padding(.vertical, 10)
-                    .background(Capsule().fill(Color.tarjeta))
-                    .padding(.bottom, 80)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            if !permiso {
+                bannerPermiso
+                    .padding(.horizontal, 12)
+                    .padding(.top, 4)
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .onAppear { recargar() }
-        .onChange(of: fase) { _, f in if f == .active { recargar() } }
-        .onReceive(NotificationCenter.default.publisher(for: .EKEventStoreChanged)) { _ in recargar() }
-    }
-
-    // MARK: piezas
-
-    var cabecera: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(Fechas.titulo(Date()))
-                .font(.system(size: 30, weight: .bold))
-                .foregroundStyle(Color.tinta)
-            Text(agenda.hay ? (agenda.hoy.isEmpty ? "Todo hecho por hoy ✨" : "\(agenda.hoy.count) por hacer hoy") : " ")
-                .font(.system(size: 15))
-                .foregroundStyle(Color.gris)
+        .onAppear { permiso = Almacen.shared.permiso }
+        .onChange(of: fase) { _, f in
+            if f == .active { permiso = Almacen.shared.permiso }
+            if f == .background { WidgetCenter.shared.reloadAllTimelines() }
         }
     }
 
-    var bloquePermiso: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Para ver y tachar tus cosas, la app necesita mirar tu calendario.")
+    var bannerPermiso: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checklist").foregroundStyle(Color.rosa)
+            Text("Para que el widget pueda tachar, dale permiso al calendario.")
+                .font(.system(size: 13))
                 .foregroundStyle(Color.tinta)
+            Spacer(minLength: 4)
             Button {
                 Task {
                     _ = await Almacen.shared.pedirPermiso()
-                    permiso = Almacen.shared.permiso
-                    recargar()
+                    withAnimation { permiso = Almacen.shared.permiso }
+                    WidgetCenter.shared.reloadAllTimelines()
                 }
             } label: {
-                Text("Dar permiso").fontWeight(.semibold).foregroundStyle(.white)
-                    .padding(.horizontal, 18).padding(.vertical, 10)
+                Text("Dar permiso").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                    .padding(.horizontal, 12).padding(.vertical, 7)
                     .background(Capsule().fill(Color.rosa))
             }
-            Text("Si ya dijiste que no: Ajustes → Centro → Calendarios → Acceso total.")
-                .font(.footnote).foregroundStyle(Color.gris)
         }
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 18).fill(Color.papel))
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color.papel).shadow(color: .black.opacity(0.12), radius: 10, y: 4))
+    }
+}
+
+/// Navegador de la app, con la sesión de Claude guardada.
+struct WebCentro: UIViewRepresentable {
+    let url: URL
+
+    func makeCoordinator() -> Coordinador { Coordinador() }
+
+    func makeUIView(context: Context) -> WKWebView {
+        let conf = WKWebViewConfiguration()
+        conf.websiteDataStore = .default()          // se queda con tu sesión
+        conf.allowsInlineMediaPlayback = true
+        conf.mediaTypesRequiringUserActionForPlayback = []
+        let web = WKWebView(frame: .zero, configuration: conf)
+        web.navigationDelegate = context.coordinator
+        web.uiDelegate = context.coordinator
+        web.allowsBackForwardNavigationGestures = true
+        web.isOpaque = false
+        web.backgroundColor = UIColor(Color.fondo)
+        web.scrollView.backgroundColor = UIColor(Color.fondo)
+        context.coordinator.web = web
+        web.load(URLRequest(url: url))
+        return web
     }
 
-    func nota(_ t: String) -> some View {
-        Text(t).foregroundStyle(Color.gris).padding(.vertical, 8)
-    }
+    func updateUIView(_ web: WKWebView, context: Context) {}
 
-    func tarjetaSiguiente(_ it: Item) -> some View {
-        let n = Fechas.ahoraMin(), a = Fechas.minutos(it.ini)
-        let fin = it.fin.isEmpty ? it.ini : it.fin
-        return HStack(spacing: 14) {
-            casilla(it, tam: 26, blanca: true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(a <= n ? "AHORA · HASTA LAS \(fin)" : "LO SIGUIENTE · EN \(Fechas.duracion(a - n).uppercased())")
-                    .font(.system(size: 11, weight: .semibold)).opacity(0.75)
-                Text(it.titulo).font(.system(size: 17, weight: .semibold))
-                Text("\(it.ini) – \(fin)" + (it.lista.isEmpty ? "" : " · \(it.lista)"))
-                    .font(.system(size: 13)).opacity(0.75)
+    final class Coordinador: NSObject, WKNavigationDelegate, WKUIDelegate {
+        weak var web: WKWebView?
+
+        // Enlaces que abren otra ventana (inicio de sesión, etc.): dentro de la misma app.
+        func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
+                     for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+            if let u = navigationAction.request.url {
+                if esDeClaude(u) { webView.load(URLRequest(url: u)) } else { UIApplication.shared.open(u) }
             }
-            .foregroundStyle(.white)
-            Spacer(minLength: 0)
+            return nil
         }
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 20).fill(Color.tarjeta))
-    }
 
-    func seccion(_ titulo: String, _ xs: [Item], vacio: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(titulo.uppercased())
-                .font(.system(size: 12, weight: .semibold)).tracking(0.8)
-                .foregroundStyle(Color.gris)
-            if xs.isEmpty && !vacio.isEmpty {
-                Text(vacio).foregroundStyle(Color.gris)
+        // Lo que no es de Claude (WhatsApp, Notion, Google Calendar…) se abre fuera, en su app.
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+                     decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            guard let u = navigationAction.request.url else { return decisionHandler(.allow) }
+            let esquema = u.scheme?.lowercased() ?? ""
+            if esquema != "http" && esquema != "https" && esquema != "about" && esquema != "blob" && esquema != "data" {
+                UIApplication.shared.open(u)
+                return decisionHandler(.cancel)
             }
-            ForEach(xs) { it in
-                HStack(spacing: 12) {
-                    casilla(it, tam: 22)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(it.titulo).font(.system(size: 15.5, weight: .semibold)).foregroundStyle(Color.tinta)
-                        let sub = subtitulo(it)
-                        if !sub.isEmpty { Text(sub).font(.system(size: 12.5)).foregroundStyle(Color.gris) }
-                    }
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 14).padding(.vertical, 11)
-                .background(RoundedRectangle(cornerRadius: 16).fill(Color.papel))
-                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.linea, lineWidth: 1))
+            if navigationAction.targetFrame?.isMainFrame == true && navigationAction.navigationType == .linkActivated && !esDeClaude(u) {
+                UIApplication.shared.open(u)
+                return decisionHandler(.cancel)
             }
+            decisionHandler(.allow)
         }
-    }
 
-    var seccionRecien: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("TACHADO AQUÍ · LLEGARÁ A TU CENTRO AL ABRIRLO")
-                .font(.system(size: 11, weight: .semibold)).tracking(0.6)
-                .foregroundStyle(Color.gris)
-            ForEach(agenda.recien) { it in
-                HStack {
-                    Text(it.titulo).strikethrough().foregroundStyle(Color.gris)
-                    Spacer()
-                    Button("Deshacer") { destachar(it) }
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Color.rosa)
-                }
-            }
+        func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
+                     initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+            presentar(UIAlertController(title: nil, message: message, preferredStyle: .alert), ok: completionHandler)
         }
-    }
 
-    func casilla(_ it: Item, tam: CGFloat, blanca: Bool = false) -> some View {
-        Button { tachar(it) } label: {
-            ZStack {
-                if it.esTarea {
-                    RoundedRectangle(cornerRadius: tam * 0.3).strokeBorder(blanca ? Color.white : Color(hex: it.colorHex), lineWidth: 2)
-                } else {
-                    Circle().strokeBorder(blanca ? Color.white : Color(hex: it.colorHex), lineWidth: 2)
-                }
-            }
-            .frame(width: tam, height: tam)
-            .contentShape(Rectangle().inset(by: -8))
+        func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
+                     initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+            let a = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+            a.addAction(UIAlertAction(title: "Cancelar", style: .cancel) { _ in completionHandler(false) })
+            a.addAction(UIAlertAction(title: "Aceptar", style: .default) { _ in completionHandler(true) })
+            raiz()?.present(a, animated: true)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Tachar \(it.titulo)")
-    }
 
-    // MARK: acciones
-
-    func recargar() {
-        permiso = Almacen.shared.permiso
-        if permiso { agenda = Agenda.cargar() }
-    }
-
-    func tachar(_ it: Item) {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        do {
-            try Almacen.shared.tachar(id: it.id, tipo: it.tipo, fecha: it.fecha)
-            withAnimation { recargar() }
-            WidgetCenter.shared.reloadAllTimelines()
-            mostrar("✅ Tachada")
-        } catch {
-            mostrar(error.localizedDescription)
+        private func presentar(_ a: UIAlertController, ok: @escaping () -> Void) {
+            a.addAction(UIAlertAction(title: "Aceptar", style: .default) { _ in ok() })
+            if let r = raiz() { r.present(a, animated: true) } else { ok() }
         }
-    }
 
-    func destachar(_ it: Item) {
-        try? Almacen.shared.destachar(id: it.id)
-        withAnimation { recargar() }
-        WidgetCenter.shared.reloadAllTimelines()
-    }
+        private func raiz() -> UIViewController? {
+            let escena = UIApplication.shared.connectedScenes.first as? UIWindowScene
+            var v = escena?.keyWindow?.rootViewController
+            while let p = v?.presentedViewController { v = p }
+            return v
+        }
 
-    func mostrar(_ t: String) {
-        withAnimation { aviso = t }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { withAnimation { if aviso == t { aviso = nil } } }
+        private func esDeClaude(_ u: URL) -> Bool {
+            let h = (u.host ?? "").lowercased()
+            return h.hasSuffix("claude.ai") || h.hasSuffix("anthropic.com") || h.hasSuffix("claudeusercontent.com")
+                || h.hasSuffix("claude.site") || h.hasSuffix("accounts.google.com") || h.hasSuffix("appleid.apple.com")
+        }
     }
 }

@@ -30,6 +30,9 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         NSCalendarsFullAccessUsageDescription: "Para ver tus tareas y citas de tu Centro y poder tacharlas."
         NSCalendarsUsageDescription: "Para ver tus tareas y citas de tu Centro y poder tacharlas."
+        NSCameraUsageDescription: "Para hacer fotos de tus comidas y tickets desde tu Centro."
+        NSPhotoLibraryUsageDescription: "Para elegir fotos de tus comidas y tickets en tu Centro."
+        NSMicrophoneUsageDescription: "Para contarle cosas a tu Centro con la voz."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.paula.centro
