@@ -3,6 +3,8 @@ import WidgetKit
 
 // «Oye Siri, apunta en Centro…» y compañía.
 
+func dlg(_ s: String) -> IntentDialog { IntentDialog(stringLiteral: s) }
+
 struct ApuntarIntent: AppIntent {
     static let title: LocalizedStringResource = "Apuntar en Centro"
     static let description = IntentDescription("Apunta una tarea en tu Centro, como si la escribieras allí.")
@@ -13,7 +15,7 @@ struct ApuntarIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         try Almacen.shared.apuntar(texto)
         WidgetCenter.shared.reloadAllTimelines()
-        return .result(dialog: "Apuntado ✅ Lo verás en tu Centro.")
+        return .result(dialog: dlg("Apuntado ✅ Lo verás en tu Centro."))
     }
 }
 
@@ -39,7 +41,7 @@ struct GastoIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         try Almacen.shared.apuntarDinero(importe: -abs(importe), concepto: concepto, origen: como.rawValue,
                                          categoria: "imprevistos", fecha: Date())
-        return .result(dialog: "Apuntado: \(concepto), \(importe.formatted(.number.precision(.fractionLength(0...2)))) € 💸")
+        return .result(dialog: dlg("Apuntado: \(concepto), \(importe.formatted(.number.precision(.fractionLength(0...2)))) € 💸"))
     }
 }
 
@@ -55,7 +57,7 @@ struct IngresoIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         try Almacen.shared.apuntarDinero(importe: abs(importe), concepto: concepto, origen: "banco",
                                          categoria: "otros_ing", fecha: Date())
-        return .result(dialog: "¡Bien! Apuntado: \(concepto), \(importe.formatted(.number.precision(.fractionLength(0...2)))) € 💰")
+        return .result(dialog: dlg("¡Bien! Apuntado: \(concepto), \(importe.formatted(.number.precision(.fractionLength(0...2)))) € 💰"))
     }
 }
 
@@ -69,7 +71,7 @@ struct AnadirCompraIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         try Almacen.shared.apuntarCompra(texto)
         WidgetCenter.shared.reloadAllTimelines()
-        return .result(dialog: "Añadido a la compra 🛒")
+        return .result(dialog: dlg("Añadido a la compra 🛒"))
     }
 }
 
@@ -83,10 +85,10 @@ struct QueTocaIntent: AppIntent {
             let n = Fechas.ahoraMin(), ini = Fechas.minutos(s.ini)
             let cuando = ini <= n ? "Ahora mismo" : "A las \(s.ini)"
             let resto = a.hoy.count - 1
-            return .result(dialog: "\(cuando): \(s.titulo).\(resto > 0 ? " Y luego \(resto) \(resto == 1 ? "cosa más" : "cosas más") hoy." : "")")
+            return .result(dialog: dlg("\(cuando): \(s.titulo).\(resto > 0 ? " Y luego \(resto) \(resto == 1 ? "cosa más" : "cosas más") hoy." : "")"))
         }
-        if a.hoy.isEmpty { return .result(dialog: "Nada más por hoy. ¡Descansa! ✨") }
-        return .result(dialog: "No tienes nada con hora. Te quedan \(a.hoy.count) \(a.hoy.count == 1 ? "cosa" : "cosas"), la primera: \(a.hoy[0].titulo).")
+        if a.hoy.isEmpty { return .result(dialog: dlg("Nada más por hoy. ¡Descansa! ✨")) }
+        return .result(dialog: dlg("No tienes nada con hora. Te quedan \(a.hoy.count) \(a.hoy.count == 1 ? "cosa" : "cosas"), la primera: \(a.hoy[0].titulo)."))
     }
 }
 

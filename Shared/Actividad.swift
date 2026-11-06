@@ -42,9 +42,11 @@ enum Vivo {
             for o in actuales where o.id != x.id { await o.end(nil, dismissalPolicy: .immediate) }
         } else {
             for o in actuales { await o.end(nil, dismissalPolicy: .immediate) }
+            #if APP
             if crear {
                 _ = try? Activity.request(attributes: SiguienteAtributos(), content: contenido, pushType: nil)
             }
+            #endif
         }
     }
 

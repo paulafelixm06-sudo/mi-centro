@@ -320,7 +320,7 @@ struct VistaMiDia: View {
         .gaugeStyle(.accessoryCircularCapacity)
     }
 
-    var linea: some View {
+    @ViewBuilder var linea: some View {
         if let s = a.siguiente {
             Text("\(s.ini) \(s.titulo)")
         } else {
