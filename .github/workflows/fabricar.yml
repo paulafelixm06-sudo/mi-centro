@@ -25,6 +25,7 @@ jobs:
             -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            MARKETING_VERSION="2.0.${{ github.run_number }}" CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
             build | tee build.log | grep -E "error:|warning: .*deprecated|BUILD (SUCCEEDED|FAILED)" || true
           grep -q "BUILD SUCCEEDED" build.log
           test -f build/Build/Products/Release-iphoneos/CentroDePaula.app/CentroDePaula
@@ -35,6 +36,36 @@ jobs:
           cp -R build/Build/Products/Release-iphoneos/CentroDePaula.app Payload/
           ls Payload/CentroDePaula.app/PlugIns || true
           zip -qry CentroDePaula.ipa Payload
+
+      - name: Fuente de AltStore (para el botón «Actualizar»)
+        env:
+          NOTA: ${{ github.event.head_commit.message }}
+        run: |
+          python3 - <<'PY'
+          import json, os, plistlib, datetime
+          info = plistlib.load(open("Payload/CentroDePaula.app/Info.plist", "rb"))
+          privacidad = {k: v for k, v in info.items() if k.endswith("UsageDescription")}
+          base = "https://github.com/paulafelixm06-sudo/mi-centro"
+          icono = "https://raw.githubusercontent.com/paulafelixm06-sudo/mi-centro/claude/app/App/Assets.xcassets/AppIcon.appiconset/icono.png"
+          url = base + "/releases/download/ultima/CentroDePaula.ipa"
+          tam = os.path.getsize("CentroDePaula.ipa")
+          hoy = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+          nota = (os.environ.get("NOTA") or "Mejoras para tu Centro").split("\n")[0]
+          v = info["CFBundleShortVersionString"]; b = info["CFBundleVersion"]
+          app = {
+            "name": "Centro", "bundleIdentifier": "com.paula.centro", "developerName": "Paula",
+            "subtitle": "Tu día, tu casa y tu dinero", "localizedDescription": "Tu Centro de Paula en el iPhone, con widgets, avisos y Siri.",
+            "iconURL": icono, "tintColor": "#c9748a", "category": "productivity", "screenshots": [],
+            "versions": [{"version": v, "buildVersion": b, "date": hoy, "localizedDescription": nota,
+                          "downloadURL": url, "size": tam, "minOSVersion": "17.0"}],
+            "version": v, "versionDate": hoy, "versionDescription": nota, "downloadURL": url, "size": tam,
+            "appPermissions": {"entitlements": [], "privacy": privacidad},
+          }
+          fuente = {"name": "Centro de Paula", "identifier": "com.paula.centro.fuente", "subtitle": "Las novedades de tu Centro",
+                    "iconURL": icono, "tintColor": "#c9748a", "website": base, "apps": [app], "news": []}
+          json.dump(fuente, open("fuente.json", "w"), ensure_ascii=False, indent=1)
+          print(json.dumps(fuente, ensure_ascii=False)[:600])
+          PY
 
       - name: Guardar la app
         uses: actions/upload-artifact@v4
@@ -47,7 +78,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete ultima --yes --cleanup-tag || true
-          gh release create ultima CentroDePaula.ipa --title "Centro de Paula (última versión)" --notes "Descarga CentroDePaula.ipa e instálala con AltStore."
+          gh release create ultima CentroDePaula.ipa fuente.json --title "Centro de Paula (última versión)" --notes "Descarga CentroDePaula.ipa e instálala con AltStore."
 
       - name: Registro si falla
         if: failure()

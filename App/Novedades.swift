@@ -22,7 +22,7 @@ struct Novedades: View {
                dibujo: AnyView(DibujoPortada())),
         Pagina(emoji: "🔔", titulo: "Avisos con botones",
                texto: "Cuando empieza algo te llega un aviso. Sin abrir nada, puedes marcarlo como hecho, que te lo recuerde en 15 minutos o pasarlo a mañana.",
-               truco: "Además: «Buenos días» a las 8:30 con tu día, «¿Cerramos el día?» a las 21:00 y la revisión del viernes a las 18:30.",
+               truco: "Además: «Buenos días» a las 8:30, «¿Cerramos el día?» a las 21:00 y la revisión del viernes a las 18:30. Para no tener avisos repetidos, apaga los de Google Calendar: Ajustes → Notificaciones → Google Calendar (y Calendario).",
                dibujo: AnyView(DibujoAviso())),
         Pagina(emoji: "⏳", titulo: "«Lo siguiente», siempre a la vista",
                texto: "Cuando falten menos de 2 horas para algo, aparece en la pantalla de bloqueo y arriba, en la isla, con la cuenta atrás. Tócalo en «Hecho» y listo.",

@@ -42,7 +42,7 @@ enum Avisos {
 
         var nuevas: [UNNotificationRequest] = []
 
-        for d in 0..<3 {
+        for d in 0..<4 {
             guard let dia = cal.date(byAdding: .day, value: d, to: ahora) else { continue }
             let f = Fechas.clave(dia)
             let cosas = (c.dias[f] ?? []).filter { !$0.hecho && !c.pendientesIds.contains($0.id) }
@@ -66,10 +66,27 @@ enum Avisos {
                 nuevas.append(peticion("centro.manana.\(f)", ct, h))
             }
 
+            // ⏰ cosas de todo el día con aviso (p. ej. «la víspera a las 20:00» o «ese día a las 9:00»)
+            for it in cosas where it.todoDia {
+                guard let av = it.aviso, let cero = Fechas.fecha(it.fecha, "00:00") else { continue }
+                let cuando = cero.addingTimeInterval(TimeInterval(-av * 60))
+                guard cuando > ahora else { continue }
+                let ct = UNMutableNotificationContent()
+                ct.title = (it.prioridad == "alta" ? "❗️ " : "") + it.titulo
+                ct.body = it.fecha == Fechas.clave(cuando) ? "Es hoy" : "Es mañana · " + Fechas.titulo(cero)
+                if !it.lista.isEmpty { ct.subtitle = it.lista }
+                ct.sound = .default
+                ct.categoryIdentifier = categoriaCosa
+                ct.threadIdentifier = "centro.cosas"
+                ct.interruptionLevel = .timeSensitive
+                ct.userInfo = ["id": it.id, "tipo": it.tipo, "fecha": it.fecha, "titulo": it.titulo, "ini": ""]
+                nuevas.append(peticion("centro.t.\(it.id)", ct, cuando))
+            }
+
             // ⏰ cuando empieza (o cuando pediste el aviso) cada cosa con hora
             for it in cosas where !it.todoDia {
                 guard let ini = it.inicio else { continue }
-                let antes = it.esTarea ? (it.aviso ?? 0) : 0
+                let antes = max(0, it.aviso ?? 0)
                 let cuando = ini.addingTimeInterval(TimeInterval(-antes * 60))
                 guard cuando > ahora else { continue }
                 let ct = UNMutableNotificationContent()
