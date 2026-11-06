@@ -20,14 +20,19 @@ struct SiguienteAtributos: ActivityAttributes {
 }
 
 enum Vivo {
-    /// Pone (o quita) «Lo siguiente» en la pantalla de bloqueo.
-    /// Sale cuando falta menos de 2 horas para lo próximo con hora, y se va cuando termina.
+    /// Solo sale lo que TÚ eliges seguir en vivo (desde la tarea: ⋯ → «Seguir en vivo»). Nunca solo.
+    static var seguido: String? {
+        get { UserDefaults.standard.string(forKey: "centro-vivo") }
+        set { UserDefaults.standard.set(newValue, forKey: "centro-vivo") }
+    }
+
     static func actualizar(_ a: Agenda, crear: Bool = true) async {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         let actuales = Activity<SiguienteAtributos>.activities
-        guard let s = a.siguiente, let ini = s.inicio, let fin = s.final,
-              ini.timeIntervalSinceNow < 2 * 3600 else {
+        guard let id = seguido, let s = a.hoy.first(where: { $0.id == id }),
+              let ini = s.inicio, let fin = s.final, fin > Date() else {
             for x in actuales { await x.end(nil, dismissalPolicy: .immediate) }
+            if seguido != nil && a.hay { seguido = nil }   // ya terminó o lo tachaste
             return
         }
         let empezada = ini <= Date()

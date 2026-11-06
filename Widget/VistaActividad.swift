@@ -64,18 +64,15 @@ func rango(_ s: SiguienteAtributos.ContentState) -> String {
     return "\(f.string(from: s.inicio)) – \(f.string(from: s.fin))"
 }
 
-/// Cuenta atrás: hasta que empieza, o hasta que termina.
+/// Sin cuentas atrás (agobian): solo a qué hora empieza o hasta cuándo dura.
 struct Cuenta: View {
     let ctx: ActivityViewContext<SiguienteAtributos>
     var body: some View {
         let s = ctx.state
-        let objetivo = estaPasando(ctx) ? s.fin : s.inicio
-        let ya = Date()
-        if objetivo > ya {
-            Text(timerInterval: ya...objetivo, countsDown: true).monospacedDigit().multilineTextAlignment(.trailing)
-        } else {
-            Text("ya").monospacedDigit()
-        }
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return Text(estaPasando(ctx) ? "hasta \(f.string(from: s.fin))" : f.string(from: s.inicio))
+            .monospacedDigit().multilineTextAlignment(.trailing)
     }
 }
 
@@ -102,11 +99,7 @@ struct VistaBloqueo: View {
             RoundedRectangle(cornerRadius: 3).fill(Color(hex: s.colorHex)).frame(width: 5)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
-                    Text(ahora ? "AHORA" : "LO SIGUIENTE").font(.system(size: 10.5, weight: .bold)).foregroundStyle(.white.opacity(0.6))
-                    if !ahora {
-                        Text("·").foregroundStyle(.white.opacity(0.4))
-                        Text("empieza en").font(.system(size: 10.5)).foregroundStyle(.white.opacity(0.6))
-                    }
+                    Text(ahora ? "AHORA" : "A LAS").font(.system(size: 10.5, weight: .bold)).foregroundStyle(.white.opacity(0.6))
                 }
                 Text(s.titulo).font(.system(size: 17, weight: .bold)).foregroundStyle(.white).lineLimit(1)
                 Text(rango(s) + (s.lista.isEmpty ? "" : " · \(s.lista)"))

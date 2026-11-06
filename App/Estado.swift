@@ -67,6 +67,10 @@ final class Estado: ObservableObject {
         if let ls = d["portadas"] as? [[String: Any]] {
             Task.detached { await Portadas.buscar(ls) }
         }
+        if let v = d["vivo"] as? String {
+            Vivo.seguido = v.isEmpty ? nil : v
+            Task { await Vivo.actualizar(Agenda.cargar(), crear: true) }
+        }
         if let ls = d["portadasUrl"] as? [[String: Any]] {
             Task.detached { await Portadas.descargar(ls) }
         }
