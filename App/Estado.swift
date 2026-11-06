@@ -67,6 +67,9 @@ final class Estado: ObservableObject {
         if let ls = d["portadas"] as? [[String: Any]] {
             Task.detached { await Portadas.buscar(ls) }
         }
+        if let ls = d["portadasUrl"] as? [[String: Any]] {
+            Task.detached { await Portadas.descargar(ls) }
+        }
     }
 
     static let refresco = "com.paula.centro.refrescar"

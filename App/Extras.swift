@@ -26,6 +26,16 @@ enum Portadas {
         }
     }
 
+    /// Portadas que ya tienes en Notion: tu Centro nos pasa el enlace (dura 5 minutos) y la descargamos.
+    static func descargar(_ ls: [[String: Any]]) async {
+        for l in ls {
+            guard let id = l["id"] as? String, let u = l["url"] as? String else { continue }
+            var jpg = await imagen(u)
+            if jpg == nil, let q = l["q"] as? String { jpg = await una(q, l["autor"] as? String ?? "") }
+            await Estado.shared.enviarPortada(id: id, jpg: jpg)
+        }
+    }
+
     static func una(_ q: String, _ autor: String) async -> Data? {
         guard !q.isEmpty else { return nil }
         if let d = await google(q, autor, "es") { return d }
@@ -80,7 +90,7 @@ enum Portadas {
     }
 
     /// Descarga la imagen y la deja a 300 px de ancho, en JPEG.
-    private static func imagen(_ s: String) async -> Data? {
+    static func imagen(_ s: String) async -> Data? {
         guard let d = await pedir(s), let im = UIImage(data: d), im.size.width >= 90, im.size.height >= 120 else { return nil }
         let w: CGFloat = 300, h = (im.size.height * w / im.size.width).rounded()
         let f = UIGraphicsImageRendererFormat.default(); f.scale = 1
