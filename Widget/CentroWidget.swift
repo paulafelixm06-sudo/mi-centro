@@ -22,6 +22,7 @@ struct Proveedor: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<Entrada>) -> Void) {
+        if principal { Almacen.shared.refrescar() }   // que el iPhone mire si Google trae algo nuevo
         let e = actual()
         // Se vuelve a mirar cada 15 minutos (el iPhone decide el momento exacto),
         // y justo cuando empieza o termina lo siguiente, para que la tarjeta cambie a tiempo.

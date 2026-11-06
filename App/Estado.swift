@@ -55,6 +55,7 @@ final class Estado: ObservableObject {
     /// Todo lo que hay que tener al día cuando abres o dejas la app.
     func ponerAlDia(crearActividad: Bool) async {
         guard Almacen.shared.permiso else { return }
+        Almacen.shared.refrescar()
         await Avisos.reprogramar()
         await Vivo.actualizar(Agenda.cargar(), crear: crearActividad)
         WidgetCenter.shared.reloadAllTimelines()

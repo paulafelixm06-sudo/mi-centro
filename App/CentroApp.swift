@@ -55,6 +55,7 @@ struct Raiz: View {
         .onChange(of: fase) { _, f in
             if f == .active {
                 permiso = Almacen.shared.permiso
+                Almacen.shared.refrescar()
                 Task { await estado.ponerAlDia(crearActividad: true) }
             }
             if f == .inactive {
@@ -192,6 +193,13 @@ let scriptReenviar = """
   if(window.__centroFw) return; window.__centroFw = 1;
   window.addEventListener('message', function(e){
     var d = e.data;
+    if(d && d.centro === 'snap' && e.source !== window){
+      try{
+        if(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.centro){ window.webkit.messageHandlers.centro.postMessage({snap: d.d}) }
+        else if(window.parent !== window){ window.parent.postMessage(d, '*') }
+      }catch(x){}
+      return;
+    }
     if(!d || d.centro !== 'refrescar' || e.source === window) return;
     var fs = document.querySelectorAll('iframe');
     for(var i=0;i<fs.length;i++){ try{ fs[i].contentWindow.postMessage({centro:'refrescar'}, '*') }catch(x){} }
@@ -243,8 +251,17 @@ struct WebCentro: UIViewRepresentable {
         }
 
         // «listo» = tu Centro ya se ve a pantalla completa; «web» = otra página (por ejemplo, iniciar sesión)
+        // {snap: …} = los datos de tu Centro para los widgets, recién hechos
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             if let m = message.body as? String, m == "listo" || m == "web" { quitarPortada() }
+            if let d = message.body as? [String: Any], let snap = d["snap"] as? String {
+                DispatchQueue.main.async {
+                    if Almacen.shared.guardarCopia(snap) {
+                        WidgetCenter.shared.reloadAllTimelines()
+                        Task { await Estado.shared.ponerAlDia(crearActividad: false) }
+                    }
+                }
+            }
         }
 
         // Enlaces que abren otra ventana (inicio de sesión, etc.): dentro de la misma app.

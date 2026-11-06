@@ -133,6 +133,19 @@ final class Almacen {
         return nil
     }
 
+    /// Pide al iPhone que mire ya si hay cambios en tus calendarios de Google.
+    func refrescar() { store.refreshSourcesIfNecessary() }
+
+    /// Tu Centro (abierto dentro de la app) nos pasa sus datos directamente: se guardan al momento
+    /// en la copia del calendario del iPhone, sin esperar a que Google sincronice.
+    @discardableResult
+    func guardarCopia(_ texto: String) -> Bool {
+        guard permiso, texto.hasPrefix("{"), let ev = evento(Self.textoDatos, dia: 1) else { return false }
+        if ev.notes == texto { return false }
+        ev.notes = texto
+        do { try store.save(ev, span: .thisEvent, commit: true); return true } catch { return false }
+    }
+
     /// Lo que has hecho en el iPhone y el Centro aún no ha recogido.
     func pendientes() -> [[String: Any]] {
         guard let ev = evento(Self.textoTachados, dia: 2), let o = json(ev.notes),
