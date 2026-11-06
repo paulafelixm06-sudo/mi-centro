@@ -103,6 +103,39 @@ enum Avisos {
             }
         }
 
+        // 🔔 avisos de «Más» (suscripciones, Hacienda, perras, caducidades)
+        for r in c.recordatorios where r.cuando > ahora {
+            let ct = UNMutableNotificationContent()
+            ct.title = r.titulo
+            ct.body = r.cuerpo
+            ct.sound = .default
+            ct.categoryIdentifier = categoriaDia
+            ct.threadIdentifier = "centro.mas"
+            nuevas.append(peticion("centro.x.\(r.id)", ct, r.cuando))
+        }
+
+        // 📊 resumen del dinero: a mitad de mes y el último día
+        if let z = c.dinero, let gastado = z.gastado, let plan = z.plan, plan > 0 {
+            let mes = cal.component(.month, from: ahora)
+            let fm = DateFormatter()
+            fm.locale = Locale(identifier: "es_ES")
+            let nombreMes = fm.standaloneMonthSymbols[mes - 1]
+            let rango = cal.range(of: .day, in: .month, for: ahora)?.count ?? 30
+            let libre = z.libre.map { " Te quedan \($0) €" + (z.dia.map { " (\($0) € al día)" } ?? "") + "." } ?? ""
+            for (dia, hora, titulo) in [(15, 20, "📊 Mitad de \(nombreMes)"), (rango, 20, "📊 Así ha ido \(nombreMes)")] {
+                guard let cuando = cal.date(bySettingHour: hora, minute: 30, second: 0,
+                                            of: cal.date(bySetting: .day, value: dia, of: ahora) ?? ahora),
+                      cuando > ahora, cal.component(.month, from: cuando) == mes else { continue }
+                let ct = UNMutableNotificationContent()
+                ct.title = titulo
+                ct.body = "Llevas \(gastado) € de \(plan) € previstos.\(libre)" + (z.etiqueta.isEmpty ? "" : " " + z.etiqueta + ".")
+                ct.sound = .default
+                ct.categoryIdentifier = categoriaDia
+                ct.threadIdentifier = "centro.dinero"
+                nuevas.append(peticion("centro.dinero.\(dia)", ct, cuando))
+            }
+        }
+
         // el iPhone deja preparar 64 como mucho: primero las más cercanas
         for r in nuevas.sorted(by: { fechaDe($0) < fechaDe($1) }).prefix(56) {
             try? await centro.add(r)

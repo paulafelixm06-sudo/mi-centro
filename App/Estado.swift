@@ -22,7 +22,52 @@ final class Estado: ObservableObject {
     static let shared = Estado()
     @Published var hoja: Hoja?
     @Published var novedades = false
+    @Published var pestana = ""            // «agenda», «comida», «dinero»… la que se ve en tu Centro
+    @Published var dineroAbierto = false   // ya has pasado el Face ID
+    @Published var sinConexion = false
     weak var web: WKWebView?
+
+    var dineroBloqueado: Bool { pestana == "dinero" && !dineroAbierto }
+
+    /// Manda un mensaje a tu Centro (pasa por todas las «ventanitas» hasta llegar dentro).
+    func enviarAWeb(_ msg: [String: Any]) {
+        guard let d = try? JSONSerialization.data(withJSONObject: msg), let js = String(data: d, encoding: .utf8) else { return }
+        DispatchQueue.main.async {
+            self.web?.evaluateJavaScript("(function(m){document.querySelectorAll('iframe').forEach(function(f){try{f.contentWindow.postMessage(m,'*')}catch(e){}})})(\(js))")
+        }
+    }
+
+    func irA(_ k: String) { enviarAWeb(["centro": "ir", "k": k]) }
+
+    func enviarPortada(id: String, jpg: Data?) async {
+        if let jpg { enviarAWeb(["centro": "portada", "id": id, "b64": jpg.base64EncodedString()]) }
+        else { enviarAWeb(["centro": "portada", "id": id, "nada": true]) }
+        try? await Task.sleep(nanoseconds: 150_000_000)
+    }
+
+    /// El modo Concentración que tengas puesto en el iPhone.
+    func aplicarFoco() {
+        let q = UserDefaults.standard.string(forKey: "centro-foco") ?? "todo"
+        enviarAWeb(["centro": "foco-filtro", "q": q])
+    }
+
+    func reintentar() {
+        sinConexion = false
+        web?.reload()
+    }
+
+    /// Lo que tu Centro le cuenta a la app.
+    func recibir(_ d: [String: Any]) {
+        if let t = d["tab"] as? String {
+            pestana = t
+        }
+        if let f = d["foco"] as? [String: Any] {
+            Task { await VivoFoco.actualizar(f) }
+        }
+        if let ls = d["portadas"] as? [[String: Any]] {
+            Task.detached { await Portadas.buscar(ls) }
+        }
+    }
 
     static let refresco = "com.paula.centro.refrescar"
 

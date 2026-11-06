@@ -685,5 +685,38 @@ struct PaqueteWidgets: WidgetBundle {
         CompraWidget()
         DineroWidget()
         SiguienteActividad()
+        FocoActividad()
+        if #available(iOS 18.0, *) {
+            ControlApuntar()
+            ControlGasto()
+        }
+    }
+}
+
+// MARK: - botones del Centro de control (iOS 18)
+
+@available(iOS 18.0, *)
+struct ControlApuntar: ControlWidget {
+    var body: some ControlWidgetConfiguration {
+        StaticControlConfiguration(kind: "CentroApuntar") {
+            ControlWidgetButton(action: OpenURLIntent(URL(string: "centro://nueva")!)) {
+                Label("Apuntar", systemImage: "square.and.pencil")
+            }
+        }
+        .displayName("Apuntar en Centro")
+        .description("Abre «Nueva tarea» al momento.")
+    }
+}
+
+@available(iOS 18.0, *)
+struct ControlGasto: ControlWidget {
+    var body: some ControlWidgetConfiguration {
+        StaticControlConfiguration(kind: "CentroGasto") {
+            ControlWidgetButton(action: OpenURLIntent(URL(string: "centro://gasto")!)) {
+                Label("Gasto", systemImage: "eurosign.circle")
+            }
+        }
+        .displayName("Gasto en Centro")
+        .description("Apunta un gasto o un ingreso.")
     }
 }

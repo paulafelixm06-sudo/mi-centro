@@ -34,7 +34,12 @@ targets:
         NSCameraUsageDescription: "Para hacer fotos de tus comidas y tickets desde tu Centro."
         NSPhotoLibraryUsageDescription: "Para elegir fotos de tus comidas y tickets en tu Centro."
         NSMicrophoneUsageDescription: "Para contarle cosas a tu Centro con la voz."
+        NSFaceIDUsageDescription: "Para proteger tu presupuesto con Face ID."
         CFBundleDevelopmentRegion: es
+        INAlternativeAppNames:
+          - INAlternativeAppName: Mi Centro
+          - INAlternativeAppName: Centro de Paula
+          - INAlternativeAppName: Mi centro de Paula
         NSSupportsLiveActivities: true
         NSUserActivityTypes: [ApuntarIntent, GastoIntent, IngresoIntent, AnadirCompraIntent, QueTocaIntent, VerNovedadesIntent]
         UIBackgroundModes: [fetch]
@@ -63,6 +68,8 @@ targets:
     dependencies:
       - target: CentroWidget
         embed: true
+      - target: CentroCompartir
+        embed: true
   CentroWidget:
     type: app-extension
     platform: iOS
@@ -86,3 +93,28 @@ targets:
     dependencies:
       - sdk: WidgetKit.framework
       - sdk: SwiftUI.framework
+  CentroCompartir:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Compartir
+      - Shared
+    info:
+      path: Compartir/Info.plist
+      properties:
+        CFBundleDisplayName: Centro
+        CFBundleDevelopmentRegion: es
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        NSCalendarsFullAccessUsageDescription: "Para guardar en tu Centro lo que compartes."
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: "$(PRODUCT_MODULE_NAME).VistaCompartir"
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsWebPageWithMaxCount: 1
+              NSExtensionActivationSupportsText: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.paula.centro.compartir

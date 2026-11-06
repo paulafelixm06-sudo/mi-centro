@@ -5,7 +5,7 @@ import SwiftUI
 struct Novedades: View {
     @Environment(\.dismiss) var cerrar
     @State private var pagina = 0
-    static let version = "novedades-2"
+    static let version = "novedades-3"
 
     struct Pagina {
         let emoji: String
@@ -15,7 +15,53 @@ struct Novedades: View {
         let dibujo: AnyView
     }
 
-    var paginas: [Pagina] { [
+    /// Si ya viste las anteriores, solo te enseño lo nuevo.
+    var paginas: [Pagina] { UserDefaults.standard.bool(forKey: "novedades-2") ? nuevas3 : nuevas3 + anteriores }
+
+    var nuevas3: [Pagina] { [
+        Pagina(emoji: "✨", titulo: "¡Más cosas nuevas!",
+               texto: "Tu app ahora hace aún más: gastos que se apuntan solos, recetas desde Pinterest, Face ID para el dinero y mucho más. Te lo cuento en un momento.",
+               truco: "En tu Centro, abajo, la pestaña «Más» tiene vacaciones, suscripciones, Hacienda, Heda y Eira, limpieza, «¿qué cocino?», caducidades y tu biblioteca.",
+               dibujo: AnyView(DibujoEmoji(e: "✨"))),
+        Pagina(emoji: "💳", titulo: "Gastos que se apuntan solos",
+               texto: "Cada vez que pagues con el móvil, el gasto se apunta solo en tu Presupuesto, con la tienda y su categoría. Solo hay que activarlo una vez.",
+               truco: "App Atajos → Automatización → ＋ → «Transacción» → elige tus tarjetas → «Ejecutar inmediatamente» → Siguiente → busca «Apuntar pago con el móvil» (Centro) → en Importe pon «Importe» y en Comercio pon «Comerciante». ¡Listo!",
+               dibujo: AnyView(DibujoEmoji(e: "💳"))),
+        Pagina(emoji: "🔔", titulo: "Avisos de todo lo de «Más»",
+               texto: "Te aviso dos días antes de cada cobro de suscripción, una semana antes de los plazos de Hacienda, cuando toca vacuna o pastilla a Heda y Eira, y el día antes de que algo caduque.",
+               truco: "Y a mitad y a final de mes, un resumen de cómo vas con el dinero 📊",
+               dibujo: AnyView(DibujoAviso())),
+        Pagina(emoji: "🍽️", titulo: "Recetas desde Pinterest e Instagram",
+               texto: "En una receta, toca Compartir → Centro. Tu Centro la pasa a español y a gramos, calcula las calorías y la deja en Cocina → Por probar.",
+               truco: "Si no ves «Centro» al compartir, desliza los iconos hasta el final → «Más» → actívalo.",
+               dibujo: AnyView(DibujoEmoji(e: "🍝"))),
+        Pagina(emoji: "🎯", titulo: "Modo Concentración",
+               texto: "Cuando pongas el modo «Trabajo» del iPhone, tu Centro solo te enseña lo de trabajo. Con «Personal», lo tuyo.",
+               truco: "Ajustes → Concentración → Trabajo → Filtros de concentración → Añadir filtro → Centro → «Solo trabajo».",
+               dibujo: AnyView(DibujoEmoji(e: "🎯"))),
+        Pagina(emoji: "⏱", titulo: "Tu foco, en la isla",
+               texto: "Cuando empiezas una sesión de foco (pomodoro) en tu Centro, la cuenta atrás sale arriba en la isla y en la pantalla de bloqueo.",
+               truco: "En cualquier tarea: mantén pulsado → «Empezar foco con esta tarea».",
+               dibujo: AnyView(DibujoEmoji(e: "⏱"))),
+        Pagina(emoji: "🎛️", titulo: "Botón en el Centro de control",
+               texto: "Desliza desde arriba a la derecha y tendrás «Apuntar» y «Gasto» a un toque, estés donde estés.",
+               truco: "En el Centro de control: mantén pulsado en un hueco → «Añadir un control» → busca «Centro».",
+               dibujo: AnyView(DibujoEmoji(e: "🎛️"))),
+        Pagina(emoji: "🔒", titulo: "Face ID para el dinero",
+               texto: "La pestaña Presupuesto se abre con tu cara. Así nadie que coja tu móvil ve tus cuentas.",
+               truco: "Cada vez que sales de la app se vuelve a cerrar.",
+               dibujo: AnyView(DibujoEmoji(e: "🔒"))),
+        Pagina(emoji: "📡", titulo: "Sin internet, también",
+               texto: "Si no hay cobertura, ves lo último que tenías: tu día, el menú y la compra. Lo que taches se guarda y llega solo cuando vuelva internet.",
+               truco: "Perfecto para el súper con mala cobertura 🛒",
+               dibujo: AnyView(DibujoEmoji(e: "📡"))),
+        Pagina(emoji: "📚", titulo: "Tu biblioteca, con portadas",
+               texto: "En Más → Libros tienes todos tus libros de Notion por años, en cuadrícula. Las portadas se van poniendo solas la primera vez que lo abres desde la app.",
+               truco: "Toca un libro para ver cuándo lo terminaste, tus estrellas y tus notas de Notion.",
+               dibujo: AnyView(DibujoEmoji(e: "📚"))),
+    ] }
+
+    var anteriores: [Pagina] { [
         Pagina(emoji: "🎁", titulo: "¡Tu Centro ha crecido!",
                texto: "Te enseño en un minuto todo lo nuevo para que le saques partido. Desliza para pasar.",
                truco: "Para volver a verlo cuando quieras: «Oye Siri, novedades de Centro».",
@@ -332,5 +378,16 @@ struct DibujoConfeti: View {
         }
         .clipped()
         .onAppear { withAnimation(.easeIn(duration: 2.4).repeatForever(autoreverses: false)) { cae = true } }
+    }
+}
+
+struct DibujoEmoji: View {
+    let e: String
+    @State private var arriba = false
+    var body: some View {
+        Text(e).font(.system(size: 96))
+            .scaleEffect(arriba ? 1.05 : 0.95)
+            .shadow(color: Color.rosa.opacity(0.25), radius: 18, y: 10)
+            .onAppear { withAnimation(.easeInOut(duration: 1.4).repeatForever()) { arriba = true } }
     }
 }

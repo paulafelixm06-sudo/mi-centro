@@ -38,6 +38,14 @@ struct Raiz: View {
                 Portada().transition(.opacity)
             }
 
+            if estado.dineroBloqueado && !cargando {
+                CandadoDinero().transition(.opacity)
+            }
+
+            if estado.sinConexion {
+                VistaSinConexion().transition(.opacity)
+            }
+
             if !permiso && !cargando {
                 bannerPermiso
                     .padding(.horizontal, 12)
@@ -46,6 +54,7 @@ struct Raiz: View {
             }
         }
         .onAppear {
+            Red.shared.empezar()
             permiso = Almacen.shared.permiso
             Task {
                 await Avisos.pedirPermiso()
@@ -63,6 +72,7 @@ struct Raiz: View {
                 Task { await Vivo.actualizar(Agenda.cargar(), crear: true) }
             }
             if f == .background {
+                estado.dineroAbierto = false      // al volver, otra vez Face ID para el dinero
                 WidgetCenter.shared.reloadAllTimelines()
                 estado.programarRefresco()
             }
@@ -193,16 +203,20 @@ let scriptReenviar = """
   if(window.__centroFw) return; window.__centroFw = 1;
   window.addEventListener('message', function(e){
     var d = e.data;
-    if(d && d.centro === 'snap' && e.source !== window){
+    if(!d || !d.centro || e.source === window) return;
+    // hacia fuera (de tu Centro a la app): datos del widget, foco, pestaña, portadas…
+    if((d.centro === 'snap' || d.centro === 'nativo') && e.source !== window.parent){
       try{
-        if(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.centro){ window.webkit.messageHandlers.centro.postMessage({snap: d.d}) }
+        var o = d.centro === 'snap' ? {snap: d.d} : d.d;
+        if(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.centro){ window.webkit.messageHandlers.centro.postMessage(o) }
         else if(window.parent !== window){ window.parent.postMessage(d, '*') }
       }catch(x){}
       return;
     }
-    if(!d || d.centro !== 'refrescar' || e.source === window) return;
+    // hacia dentro (de la app a tu Centro): solo lo que viene de fuera
+    if(e.source !== window.parent && d.centro !== 'refrescar') return;
     var fs = document.querySelectorAll('iframe');
-    for(var i=0;i<fs.length;i++){ try{ fs[i].contentWindow.postMessage({centro:'refrescar'}, '*') }catch(x){} }
+    for(var i=0;i<fs.length;i++){ try{ fs[i].contentWindow.postMessage(d, '*') }catch(x){} }
   });
 })();
 """
@@ -253,7 +267,11 @@ struct WebCentro: UIViewRepresentable {
         // «listo» = tu Centro ya se ve a pantalla completa; «web» = otra página (por ejemplo, iniciar sesión)
         // {snap: …} = los datos de tu Centro para los widgets, recién hechos
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-            if let m = message.body as? String, m == "listo" || m == "web" { quitarPortada() }
+            if let m = message.body as? String, m == "listo" || m == "web" {
+                quitarPortada()
+                if m == "listo" { DispatchQueue.main.asyncAfter(deadline: .now() + 2) { Estado.shared.aplicarFoco() } }
+            }
+            if let d = message.body as? [String: Any] { DispatchQueue.main.async { Estado.shared.recibir(d) } }
             if let d = message.body as? [String: Any], let snap = d["snap"] as? String {
                 DispatchQueue.main.async {
                     if Almacen.shared.guardarCopia(snap) {
@@ -287,6 +305,19 @@ struct WebCentro: UIViewRepresentable {
                 return decisionHandler(.cancel)
             }
             decisionHandler(.allow)
+        }
+
+        // Sin internet: enseñamos lo último que había (y se recarga sola cuando vuelva).
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { fallo(error) }
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { fallo(error) }
+        private func fallo(_ error: Error) {
+            let e = error as NSError
+            let sinRed: Set<Int> = [NSURLErrorNotConnectedToInternet, NSURLErrorNetworkConnectionLost, NSURLErrorTimedOut,
+                                    NSURLErrorCannotFindHost, NSURLErrorCannotConnectToHost, NSURLErrorDataNotAllowed, NSURLErrorInternationalRoamingOff]
+            if e.domain == NSURLErrorDomain && sinRed.contains(e.code) {
+                quitarPortada()
+                DispatchQueue.main.async { withAnimation { Estado.shared.sinConexion = true } }
+            }
         }
 
         func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String,

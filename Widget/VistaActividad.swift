@@ -125,3 +125,80 @@ struct VistaBloqueo: View {
         .padding(.horizontal, 16).padding(.vertical, 14)
     }
 }
+
+// MARK: - ⏱ foco (pomodoro)
+
+struct FocoActividad: Widget {
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: FocoAtributos.self) { ctx in
+            VistaFoco(s: ctx.state, caducado: ctx.isStale)
+                .padding(.horizontal, 16).padding(.vertical, 14)
+                .activityBackgroundTint(Color(hex: "#2e2027").opacity(0.94))
+                .activitySystemActionForegroundColor(.white)
+        } dynamicIsland: { ctx in
+            let s = ctx.state
+            let color = s.fase == "descanso" ? Color(hex: "#7fb8a4") : Color(hex: "#e29aae")
+            return DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) {
+                    Text(s.fase == "descanso" ? "☕ DESCANSO" : "⏱ FOCO").font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(color).padding(.leading, 4)
+                }
+                DynamicIslandExpandedRegion(.trailing) {
+                    CuentaFoco(s: s).font(.system(size: 17, weight: .bold, design: .rounded)).foregroundStyle(.white).padding(.trailing, 4)
+                }
+                DynamicIslandExpandedRegion(.bottom) {
+                    Text(s.titulo.isEmpty ? (s.fase == "descanso" ? "Respira, estira, bebe agua" : "Sesión de foco") : s.titulo)
+                        .font(.system(size: 15, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 4)
+                }
+            } compactLeading: {
+                Image(systemName: s.fase == "descanso" ? "cup.and.saucer.fill" : "timer").foregroundStyle(color)
+            } compactTrailing: {
+                CuentaFoco(s: s).font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundStyle(color).frame(maxWidth: 46)
+            } minimal: {
+                Image(systemName: "timer").foregroundStyle(color)
+            }
+            .keylineTint(color)
+        }
+    }
+}
+
+struct CuentaFoco: View {
+    let s: FocoAtributos.ContentState
+    var body: some View {
+        if s.enPausa {
+            Text(String(format: "%d:%02d", s.quedanSeg / 60, s.quedanSeg % 60)).monospacedDigit()
+        } else if s.fin > Date() {
+            Text(timerInterval: Date()...s.fin, countsDown: true).monospacedDigit().multilineTextAlignment(.trailing)
+        } else {
+            Text("¡ya!")
+        }
+    }
+}
+
+struct VistaFoco: View {
+    let s: FocoAtributos.ContentState
+    let caducado: Bool
+    var body: some View {
+        let color = s.fase == "descanso" ? Color(hex: "#7fb8a4") : Color(hex: "#e29aae")
+        HStack(spacing: 14) {
+            ZStack {
+                Circle().stroke(color.opacity(0.25), lineWidth: 5)
+                if !s.enPausa && s.fin > Date() {
+                    ProgressView(timerInterval: s.fin.addingTimeInterval(TimeInterval(-s.minutos * 60))...s.fin, countsDown: true) { EmptyView() } currentValueLabel: { EmptyView() }
+                        .progressViewStyle(.circular).tint(color)
+                }
+                Image(systemName: s.fase == "descanso" ? "cup.and.saucer.fill" : "timer").font(.system(size: 16, weight: .semibold)).foregroundStyle(color)
+            }
+            .frame(width: 48, height: 48)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(caducado ? "¡TIEMPO!" : s.enPausa ? "EN PAUSA" : s.fase == "descanso" ? "DESCANSO" : "FOCO")
+                    .font(.system(size: 10.5, weight: .bold)).foregroundStyle(.white.opacity(0.6))
+                Text(s.titulo.isEmpty ? (s.fase == "descanso" ? "Respira, estira, bebe agua" : "Sesión de foco") : s.titulo)
+                    .font(.system(size: 16, weight: .bold)).foregroundStyle(.white).lineLimit(1)
+            }
+            Spacer(minLength: 4)
+            CuentaFoco(s: s).font(.system(size: 26, weight: .bold, design: .rounded)).foregroundStyle(.white).frame(maxWidth: 100, alignment: .trailing)
+        }
+    }
+}

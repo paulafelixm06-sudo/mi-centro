@@ -166,6 +166,8 @@ final class Almacen {
         var pendientesPorId: [String: [String: Any]] = [:]
         var compra: [Compra] = []
         var nuevas: [String] = []
+        /// Avisos de «Más»: suscripciones, Hacienda, perras, caducidades… (cuándo, título, texto, id)
+        var recordatorios: [(cuando: Date, titulo: String, cuerpo: String, id: String)] = []
     }
 
     func cargar() -> Copia {
@@ -212,6 +214,14 @@ final class Almacen {
         if let z = o["z"] as? [String: Any] {
             c.dinero = Dinero(libre: numero(z["libre"]), dia: numero(z["dia"]), etiqueta: z["tag"] as? String ?? "",
                               gastado: numero(z["gastado"]), plan: numero(z["plan"]))
+        }
+        if let xs = o["x"] as? [[Any]] {
+            c.recordatorios = xs.compactMap { r in
+                guard r.count >= 4, let f = r[0] as? String, let t = r[1] as? String else { return nil }
+                let partes = f.split(separator: " ").map(String.init)
+                guard partes.count == 2, let d = Fechas.fecha(partes[0], partes[1]) else { return nil }
+                return (d, t, r[2] as? String ?? "", r[3] as? String ?? UUID().uuidString)
+            }
         }
         if let k = o["k"] as? [String: Any] {
             c.hechasHoy = numero(k["hechas"]) ?? 0
@@ -280,6 +290,18 @@ final class Almacen {
         guard !t.isEmpty else { return }
         try anadir(["id": "m-" + UUID().uuidString.prefix(8).lowercased(), "t": "m", "x": t,
                     "mom": momento, "f": Fechas.clave(fecha), "modo": modo])
+    }
+
+    /// Un pago con el móvil (Apple Pay): importe y tienda. La categoría la adivina tu Centro.
+    func apuntarPagoConMovil(importe: Double, tienda: String) throws {
+        try anadir(["id": "g-" + UUID().uuidString.prefix(8).lowercased(), "t": "g", "i": -abs(importe),
+                    "x": tienda.trimmingCharacters(in: .whitespacesAndNewlines), "o": "banco", "k": "", "f": Fechas.clave(Date())])
+    }
+
+    /// Una receta compartida desde Pinterest, Instagram o una web. Tu Centro la pasa a español y gramos.
+    func apuntarReceta(url: String, titulo: String, texto: String) throws {
+        try anadir(["id": "r-" + UUID().uuidString.prefix(8).lowercased(), "t": "r", "url": url,
+                    "x": String(titulo.prefix(120)), "txt": String(texto.prefix(3500))])
     }
 
     /// Añade algo a la lista de la compra.
