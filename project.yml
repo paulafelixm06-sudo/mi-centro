@@ -1,12 +1,13 @@
 name: CentroDePaula
 options:
   bundleIdPrefix: com.paula
+  developmentLanguage: es
   deploymentTarget:
     iOS: "17.0"
 settings:
   base:
-    MARKETING_VERSION: "1.0"
-    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "2.0"
+    CURRENT_PROJECT_VERSION: "2"
     SWIFT_VERSION: "5.0"
     CODE_SIGNING_ALLOWED: "NO"
     CODE_SIGNING_REQUIRED: "NO"
@@ -33,6 +34,27 @@ targets:
         NSCameraUsageDescription: "Para hacer fotos de tus comidas y tickets desde tu Centro."
         NSPhotoLibraryUsageDescription: "Para elegir fotos de tus comidas y tickets en tu Centro."
         NSMicrophoneUsageDescription: "Para contarle cosas a tu Centro con la voz."
+        CFBundleDevelopmentRegion: es
+        NSSupportsLiveActivities: true
+        NSUserActivityTypes: [ApuntarIntent, GastoIntent, IngresoIntent, AnadirCompraIntent, QueTocaIntent, VerNovedadesIntent]
+        UIBackgroundModes: [fetch]
+        BGTaskSchedulerPermittedIdentifiers: [com.paula.centro.refrescar]
+        CFBundleURLTypes:
+          - CFBundleURLName: com.paula.centro
+            CFBundleURLSchemes: [centro]
+        UIApplicationShortcutItems:
+          - UIApplicationShortcutItemType: nueva
+            UIApplicationShortcutItemTitle: Nueva tarea
+            UIApplicationShortcutItemIconSymbolName: square.and.pencil
+          - UIApplicationShortcutItemType: gasto
+            UIApplicationShortcutItemTitle: Gasto o ingreso
+            UIApplicationShortcutItemIconSymbolName: eurosign.circle
+          - UIApplicationShortcutItemType: comida
+            UIApplicationShortcutItemTitle: Añadir comida
+            UIApplicationShortcutItemIconSymbolName: fork.knife
+          - UIApplicationShortcutItemType: compra
+            UIApplicationShortcutItemTitle: Lista de la compra
+            UIApplicationShortcutItemIconSymbolName: cart
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.paula.centro
@@ -50,8 +72,10 @@ targets:
       path: Widget/Info.plist
       properties:
         CFBundleDisplayName: Centro
+        CFBundleDevelopmentRegion: es
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        NSSupportsLiveActivities: true
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
         NSCalendarsFullAccessUsageDescription: "Para ver tus tareas y citas de tu Centro y poder tacharlas."

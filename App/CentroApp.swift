@@ -8,8 +8,15 @@ let urlCentro = URL(string: "https://claude.ai/artifact/UQyDm4sV8C5uj9dxeB77Uu")
 
 @main
 struct CentroApp: App {
+    @UIApplicationDelegateAdaptor(Delegado.self) var delegado
+
     var body: some Scene {
         WindowGroup { Raiz() }
+            .backgroundTask(.appRefresh(Estado.refresco)) {
+                // de vez en cuando, aunque no abras la app: avisos, número del icono y «Lo siguiente» al día
+                await Estado.shared.ponerAlDia(crearActividad: false)
+                await MainActor.run { Estado.shared.programarRefresco() }
+            }
     }
 }
 
@@ -18,6 +25,7 @@ struct CentroApp: App {
 struct Raiz: View {
     @State private var permiso = Almacen.shared.permiso
     @State private var cargando = true
+    @StateObject private var estado = Estado.shared
     @Environment(\.scenePhase) private var fase
 
     var body: some View {
@@ -37,11 +45,51 @@ struct Raiz: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .onAppear { permiso = Almacen.shared.permiso }
-        .onChange(of: fase) { _, f in
-            if f == .active { permiso = Almacen.shared.permiso }
-            if f == .background { WidgetCenter.shared.reloadAllTimelines() }
+        .onAppear {
+            permiso = Almacen.shared.permiso
+            Task {
+                await Avisos.pedirPermiso()
+                await estado.ponerAlDia(crearActividad: true)
+            }
         }
+        .onChange(of: fase) { _, f in
+            if f == .active {
+                permiso = Almacen.shared.permiso
+                Task { await estado.ponerAlDia(crearActividad: true) }
+            }
+            if f == .inactive {
+                // justo al salir: «Lo siguiente» a la pantalla de bloqueo
+                Task { await Vivo.actualizar(Agenda.cargar(), crear: true) }
+            }
+            if f == .background {
+                WidgetCenter.shared.reloadAllTimelines()
+                estado.programarRefresco()
+            }
+        }
+        .onChange(of: cargando) { _, c in
+            if !c && !UserDefaults.standard.bool(forKey: Novedades.version) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { estado.novedades = true }
+            }
+        }
+        .onOpenURL { u in
+            if u.host == "novedades" { estado.novedades = true }
+            else if let h = Hoja(url: u) { estado.hoja = h }
+        }
+        .sheet(item: $estado.hoja) { h in
+            Group {
+                switch h {
+                case .nueva: HojaNueva()
+                case .gasto: HojaDinero(ingreso: false)
+                case .ingreso: HojaDinero(ingreso: true)
+                case .comida: HojaComida()
+                case .compra: HojaCompra()
+                }
+            }
+            .presentationDetents(h == .nueva ? [.medium, .large] : [.large])
+            .presentationCornerRadius(28)
+            .presentationDragIndicator(.visible)
+        }
+        .fullScreenCover(isPresented: $estado.novedades) { Novedades() }
     }
 
     var bannerPermiso: some View {
@@ -137,6 +185,20 @@ let scriptPantallaCompleta = """
 })();
 """
 
+/// En cada «ventanita» de dentro: si llega el aviso «refrescar» (cosas nuevas del iPhone), se pasa hacia dentro
+/// hasta que llega a tu Centro, que las recoge al momento.
+let scriptReenviar = """
+(function(){
+  if(window.__centroFw) return; window.__centroFw = 1;
+  window.addEventListener('message', function(e){
+    var d = e.data;
+    if(!d || d.centro !== 'refrescar' || e.source === window) return;
+    var fs = document.querySelectorAll('iframe');
+    for(var i=0;i<fs.length;i++){ try{ fs[i].contentWindow.postMessage({centro:'refrescar'}, '*') }catch(x){} }
+  });
+})();
+"""
+
 /// Navegador de la app, con la sesión de Claude guardada.
 struct WebCentro: UIViewRepresentable {
     let url: URL
@@ -150,6 +212,7 @@ struct WebCentro: UIViewRepresentable {
         conf.allowsInlineMediaPlayback = true
         conf.mediaTypesRequiringUserActionForPlayback = []
         conf.userContentController.addUserScript(WKUserScript(source: scriptPantallaCompleta, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
+        conf.userContentController.addUserScript(WKUserScript(source: scriptReenviar, injectionTime: .atDocumentStart, forMainFrameOnly: false))
         conf.userContentController.add(context.coordinator, name: "centro")
         let web = WKWebView(frame: .zero, configuration: conf)
         web.navigationDelegate = context.coordinator
@@ -159,6 +222,7 @@ struct WebCentro: UIViewRepresentable {
         web.backgroundColor = UIColor(Color.fondo)
         web.scrollView.backgroundColor = UIColor(Color.fondo)
         context.coordinator.web = web
+        Estado.shared.web = web
         web.load(URLRequest(url: url))
         // por si algo tarda: la portada no se queda nunca más de 10 segundos
         DispatchQueue.main.asyncAfter(deadline: .now() + 10) { context.coordinator.quitarPortada() }
